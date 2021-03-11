@@ -65,8 +65,18 @@ def get_subp_decl(file, line, column):
     Return None if none is found.
     """
 
+    # If (line, col) points to a Subprogram Specification, return it
     decl = node(file, line, column, 'SubpSpec')
-    return decl.parent
+    if decl:
+        return decl.parent
+    else:
+        # If (line,col) points to a Task or Protected Entry, return it
+        for decl_kind in ('SingleTaskDecl', 'TaskTypeDecl', 'EntryDecl'):
+            decl = node(file, line, column, decl_kind)
+            if decl:
+                return decl
+        else:
+            return None
 
 
 def has_aspects(subp_decl_node):
@@ -78,14 +88,15 @@ def has_aspects(subp_decl_node):
 def get_aspect_line(line, subp_decl_node):
     """ Get the line number at which the final aspect is, or should go. """
 
-    # If it's an expression function, obtain the line number where it ends
-    # (including any aspects that follow) and return that line number.
-    if isinstance(subp_decl_node, lal.ExprFunction):
-        return int(subp_decl_node.sloc_range.end.line)
-
     # If there are already aspects, return the line where the aspect list ends
     if has_aspects(subp_decl_node):
         return int(subp_decl_node.f_aspects.sloc_range.end.line)
+
+    # If it's an expression function, task, or entry, return where it ends
+    for kind in (lal.ExprFunction, lal.SingleTaskDecl, lal.TaskTypeDecl,
+                 lal.EntryDecl):
+        if isinstance(subp_decl_node, kind):
+            return int(subp_decl_node.sloc_range.end.line)
 
     subp_spec = subp_decl_node.f_subp_spec
 
